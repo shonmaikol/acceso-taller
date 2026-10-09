@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acceso Seguro - INACAP Taller</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #121418; color: #ffffff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+    .card { background-color: #1c2026; border: 1px solid #2d333b; border-radius: 16px; padding: 28px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    h2 { font-size: 1.1rem; letter-spacing: 1px; color: #e63946; margin-bottom: 4px; text-transform: uppercase; }
+    p.sub { font-size: 0.8rem; color: #8b949e; margin-bottom: 20px; }
+    
+    /* Formulario de Login */
+    .form-group { text-align: left; margin-bottom: 16px; }
+    label { display: block; font-size: 0.75rem; color: #8b949e; margin-bottom: 6px; font-weight: 600; }
+    input { width: 100%; padding: 12px; background: #262c36; border: 1px solid #3d4450; border-radius: 8px; color: #fff; font-size: 0.95rem; outline: none; }
+    input:focus { border-color: #e63946; }
+    .btn-login { width: 100%; padding: 12px; background: #e63946; border: none; border-radius: 8px; color: #fff; font-size: 0.95rem; font-weight: 600; cursor: pointer; margin-top: 8px; }
+    .btn-login:hover { background: #d62828; }
+    .error-msg { color: #ff6b6b; font-size: 0.8rem; margin-top: 10px; display: none; }
+
+    /* Panel de Token Generado */
+    .token-panel { display: none; }
+    .docente-badge { background: #262c36; border-radius: 6px; padding: 6px 12px; font-size: 0.8rem; color: #58a6ff; margin-bottom: 16px; display: inline-block; font-weight: 600; }
+    .token-box { background: #0d1117; border: 1px solid #30363d; border-radius: 12px; padding: 18px 10px; margin-bottom: 16px; }
+    .token-label { font-size: 0.75rem; color: #8b949e; letter-spacing: 1px; margin-bottom: 6px; }
+    .token { font-size: 2.8rem; font-weight: 800; letter-spacing: 6px; color: #00e676; font-family: monospace; }
+    .progress-track { background: #30363d; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
+    .progress-fill { background: #00e676; height: 100%; width: 100%; transition: width 1s linear; }
+    .timer-text { font-size: 0.8rem; color: #8b949e; margin-bottom: 16px; }
+    .btn-logout { background: none; border: 1px solid #3d4450; color: #8b949e; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
+    .btn-logout:hover { border-color: #e63946; color: #e63946; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>INACAP TALLER</h2>
+    <p class="sub">Autenticación de Instrumentistas (TOTP)</p>
+
+    <!-- 1. VISTA DE LOGIN -->
+    <div id="loginView">
+      <div class="form-group">
+        <label for="idInput">ID DOCENTE (2 DÍGITOS)</label>
+        <input type="text" id="idInput" placeholder="Ej: 01" maxlength="2">
+      </div>
+      <div class="form-group">
+        <label for="pinInput">PIN / CONTRASEÑA PERSONAL</label>
+        <input type="password" id="pinInput" placeholder="••••" maxlength="8">
+      </div>
+      <button class="btn-login" onclick="iniciarSesion()">ACCEDER</button>
+      <div id="loginError" class="error-msg">Credenciales incorrectas</div>
+    </div>
+
+    <!-- 2. VISTA DEL GENERADOR DE CÓDIGO (PROTEGIDA) -->
+    <div id="tokenView" class="token-panel">
+      <div id="docenteBadge" class="docente-badge">DOCENTE AUTORIZADO</div>
+      
+      <div class="token-box">
+        <div class="token-label">CLAVE DINÁMICA (6 DÍGITOS)</div>
+        <div id="tokenDisplay" class="token">------</div>
+      </div>
+
+      <div class="progress-track">
+        <div id="progressBar" class="progress-fill"></div>
+      </div>
+      <div id="timerDisplay" class="timer-text">Calculando tiempo...</div>
+
+      <button class="btn-logout" onclick="cerrarSesion()">Cerrar Sesión</button>
+    </div>
+  </div>
+
+  <script>
+    // Bóveda de credenciales docentes (PIN privado asociado a semilla)
+    const baseDocentes = {
+      "01": { nombre: "PROF. MIGUEL S.", pin: "1122", semilla: "JBSWY3DPEHPK3PXP" },
+      "02": { nombre: "D. ALBORNOZ",     pin: "2233", semilla: "HXDMVJECJJWSRZ3U" },
+      "99": { nombre: "PAÑOL TALLER",    pin: "9900", semilla: "MFRGGZDFMYZXG5CT" }
+    };
+
+    let docenteActivo = null;
+    let temporizadorInterval = null;
+
+    function iniciarSesion() {
+      const id = document.getElementById("idInput").value.trim();
+      const pin = document.getElementById("pinInput").value.trim();
+      const errorLabel = document.getElementById("loginError");
+
+      if (baseDocentes[id] && baseDocentes[id].pin === pin) {
+        docenteActivo = baseDocentes[id];
+        errorLabel.style.display = "none";
+        document.getElementById("loginView").style.display = "none";
+        document.getElementById("tokenView").style.display = "block";
+        document.getElementById("docenteBadge").innerText = `${docenteActivo.nombre} (ID ${id})`;
+
+        actualizarTOTP();
+        temporizadorInterval = setInterval(actualizarTOTP, 1000);
+      } else {
+        errorLabel.style.display = "block";
+      }
+    }
+
+    function cerrarSesion() {
+      docenteActivo = null;
+      clearInterval(temporizadorInterval);
+      document.getElementById("idInput").value = "";
+      document.getElementById("pinInput").value = "";
+      document.getElementById("tokenView").style.display = "none";
+      document.getElementById("loginView").style.display = "block";
+    }
+
+    // --- MOTOR CRIPTOGRÁFICO OFFLINE (SHA-1 / HMAC / TOTP RFC 6238) ---
+    function sha1(bytes) {
+      let H0 = 0x67452301, H1 = 0xEFCDAB89, H2 = 0x98BADCFE, H3 = 0x10325476, H4 = 0xC3D2E1F0;
+      let len = bytes.length;
+      let words = [];
+      for (let i = 0; i < len; i++) words[i >> 2] |= (bytes[i] & 0xFF) << (24 - (i % 4) * 8);
+      words[len >> 2] |= 0x80 << (24 - (len % 4) * 8);
+      words[(((len + 8) >> 6) + 1) * 16 - 1] = len * 8;
+
+      let w = new Array(80);
+      for (let i = 0; i < words.length; i += 16) {
+        for (let t = 0; t < 16; t++) w[t] = words[i + t] | 0;
+        for (let t = 16; t < 80; t++) {
+          let v = w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16];
+          w[t] = (v << 1) | (v >>> 31);
+        }
+        let a = H0, b = H1, c = H2, d = H3, e = H4;
+        for (let t = 0; t < 80; t++) {
+          let f, k;
+          if (t < 20) { f = (b & c) | ((~b) & d); k = 0x5A827999; }
+          else if (t < 40) { f = b ^ c ^ d; k = 0x6ED9EBA1; }
+          else if (t < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDC; }
+          else { f = b ^ c ^ d; k = 0xCA62C1D6; }
+          let temp = (((a << 5) | (a >>> 27)) + f + e + k + w[t]) | 0;
+          e = d; d = c; c = (b << 30) | (b >>> 2); b = a; a = temp;
+        }
+        H0 = (H0 + a) | 0; H1 = (H1 + b) | 0; H2 = (H2 + c) | 0; H3 = (H3 + d) | 0; H4 = (H4 + e) | 0;
+      }
+      let res = new Uint8Array(20);
+      let h = [H0, H1, H2, H3, H4];
+      for (let i = 0; i < 5; i++) {
+        res[i * 4] = (h[i] >>> 24) & 0xFF;
+        res[i * 4 + 1] = (h[i] >>> 16) & 0xFF;
+        res[i * 4 + 2] = (h[i] >>> 8) & 0xFF;
+        res[i * 4 + 3] = h[i] & 0xFF;
+      }
+      return res;
+    }
+
+    function hmacSha1(key, message) {
+      let bKey = new Uint8Array(64);
+      if (key.length > 64) key = sha1(key);
+      bKey.set(key);
+      let k_ipad = new Uint8Array(64);
+      let k_opad = new Uint8Array(64);
+      for (let i = 0; i < 64; i++) {
+        k_ipad[i] = bKey[i] ^ 0x36;
+        k_opad[i] = bKey[i] ^ 0x5c;
+      }
+      let inner = new Uint8Array(k_ipad.length + message.length);
+      inner.set(k_ipad);
+      inner.set(message, k_ipad.length);
+      let innerHash = sha1(inner);
+
+      let outer = new Uint8Array(k_opad.length + innerHash.length);
+      outer.set(k_opad);
+      outer.set(innerHash, k_opad.length);
+      return sha1(outer);
+    }
+
+    function base32ToBytes(base32) {
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+      let bits = 0, value = 0, output = [];
+      for (let i = 0; i < base32.length; i++) {
+        const idx = alphabet.indexOf(base32[i].toUpperCase());
+        if (idx === -1) continue;
+        value = (value << 5) | idx;
+        bits += 5;
+        if (bits >= 8) {
+          output.push((value >>> (bits - 8)) & 255);
+          bits -= 8;
+        }
+      }
+      return new Uint8Array(output);
+    }
+
+    function calcularTOTP(semillaBase32, tiempoSegundos) {
+      const contador = Math.floor(tiempoSegundos / 60);
+      const msg = new Uint8Array(8);
+      let v = contador;
+      for (let i = 7; i >= 0; i--) {
+        msg[i] = v & 0xFF;
+        v = Math.floor(v / 256);
+      }
+      const clave = base32ToBytes(semillaBase32);
+      const hmac = hmacSha1(clave, msg);
+
+      const offset = hmac[19] & 0x0F;
+      const binario = ((hmac[offset] & 0x7F) << 24) |
+                      ((hmac[offset + 1] & 0xFF) << 16) |
+                      ((hmac[offset + 2] & 0xFF) << 8) |
+                      (hmac[offset + 3] & 0xFF);
+
+      return (binario % 1000000).toString().padStart(6, '0');
+    }
+
+    function actualizarTOTP() {
+      if (!docenteActivo) return;
+
+      const ahora = Math.floor(Date.now() / 1000);
+      const restantes = 60 - (ahora % 60);
+
+      const codigo = calcularTOTP(docenteActivo.semilla, ahora);
+      document.getElementById('tokenDisplay').innerText = codigo;
+      document.getElementById('timerDisplay').innerText = `Expira en: ${restantes}s`;
+
+      const porcentaje = (restantes / 60) * 100;
+      document.getElementById('progressBar').style.width = `${porcentaje}%`;
+
+      if (restantes <= 10) {
+        document.getElementById('progressBar').style.background = '#e63946';
+        document.getElementById('tokenDisplay').style.color = '#e63946';
+      } else {
+        document.getElementById('progressBar').style.background = '#00e676';
+        document.getElementById('tokenDisplay').style.color = '#00e676';
+      }
+    }
+  </script>
+</body>
+</html>
