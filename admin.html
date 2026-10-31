@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Taller - INACAP</title>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #0f1216; color: #e6edf3; padding: 24px; }
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; padding-bottom: 16px; margin-bottom: 24px; }
+    h1 { font-size: 1.4rem; color: #f85149; text-transform: uppercase; letter-spacing: 1px; }
+    .status-badge { padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; }
+    .badge-online { background: #238636; color: #fff; }
+    .badge-offline { background: #da3633; color: #fff; }
+    
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 18px; }
+    .card h3 { font-size: 0.8rem; color: #8b949e; text-transform: uppercase; margin-bottom: 8px; }
+    .metric { font-size: 1.8rem; font-weight: 700; color: #58a6ff; font-family: monospace; }
+    .unit { font-size: 1rem; color: #8b949e; }
+    
+    .section-title { font-size: 1.1rem; margin-bottom: 14px; color: #f0f6fc; }
+    table { width: 100%; border-collapse: collapse; background: #161b22; border-radius: 8px; overflow: hidden; margin-bottom: 28px; }
+    th, td { padding: 12px 14px; text-align: left; font-size: 0.85rem; border-bottom: 1px solid #21262d; }
+    th { background: #21262d; color: #8b949e; font-weight: 600; text-transform: uppercase; }
+    tr:hover { background: #1c2128; }
+    
+    .form-box { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 20px; max-width: 500px; margin-bottom: 28px; }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-size: 0.75rem; color: #8b949e; margin-bottom: 4px; }
+    input { width: 100%; padding: 8px 10px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #fff; outline: none; }
+    input:focus { border-color: #58a6ff; }
+    button { padding: 10px 16px; background: #238636; border: none; border-radius: 6px; color: #fff; font-weight: 600; cursor: pointer; }
+    button:hover { background: #2ea043; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>Panel de Supervisión IIoT - Taller INACAP</h1>
+      <p style="font-size: 0.8rem; color: #8b949e;">Monitoreo de Energía y Control de Activos</p>
+    </div>
+    <div id="estacionBadge" class="status-badge badge-offline">ESTACIÓN DESCONECTADA</div>
+  </header>
+
+  <h2 class="section-title">Telemetría en Vivo (Estación 01 - Prototipo)</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Estado Operativo</h3>
+      <div id="valEstado" class="metric" style="color: #f85149;">REPOSO</div>
+    </div>
+    <div class="card">
+      <h3>Docente en Turno</h3>
+      <div id="valDocente" class="metric" style="font-size: 1.2rem; color: #f0f6fc;">NINGUNO</div>
+    </div>
+    <div class="card">
+      <h3>Voltaje de Línea</h3>
+      <div class="metric"><span id="valVoltaje">0.0</span> <span class="unit">V</span></div>
+    </div>
+    <div class="card">
+      <h3>Corriente Medida</h3>
+      <div class="metric"><span id="valCorriente">0.00</span> <span class="unit">A</span></div>
+    </div>
+    <div class="card">
+      <h3>Potencia Activa</h3>
+      <div class="metric"><span id="valPotencia">0.0</span> <span class="unit">W</span></div>
+    </div>
+    <div class="card">
+      <h3>Horómetro Acumulado</h3>
+      <div class="metric"><span id="valHorometro">0.00</span> <span class="unit">h</span></div>
+    </div>
+  </div>
+
+  <h2 class="section-title">Auditoría Histórica de Sesiones</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Hora</th>
+        <th>ID Docente</th>
+        <th>Nombre</th>
+        <th>Duración (seg)</th>
+        <th>Consumo (kWh)</th>
+      </tr>
+    </thead>
+    <tbody id="tablaHistorial">
+      <tr><td colspan="6" style="text-align: center; color: #8b949e;">Cargando registros...</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="section-title">Registrar Nuevo Docente</h2>
+  <div class="form-box">
+    <div class="form-group">
+      <label>ID DOCENTE (2 dígitos)</label>
+      <input type="text" id="nuevoId" placeholder="Ej: 03" maxlength="2">
+    </div>
+    <div class="form-group">
+      <label>NOMBRE COMPLETO</label>
+      <input type="text" id="nuevoNombre" placeholder="Ej: PROF. CARLOS M.">
+    </div>
+    <div class="form-group">
+      <label>PIN DE ACCESO (Web)</label>
+      <input type="password" id="nuevoPin" placeholder="Ej: 4455" maxlength="8">
+    </div>
+    <div class="form-group">
+      <label>SEMILLA BASE32 (16 caracteres)</label>
+      <input type="text" id="nuevaSemilla" placeholder="Ej: JBSWY3DPEHPK3PXP" maxlength="16">
+    </div>
+    <button onclick="guardarDocente()">Guardar en Base de Datos</button>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      databaseURL: "https://proyectotitulo-a2fcd-default-rtdb.firebaseio.com/"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // 1. Escucha en tiempo real de la estación de trabajo
+    db.ref("estaciones/estacion_01").on("value", (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return;
+
+      document.getElementById("valEstado").innerText = data.estado || "REPOSO";
+      document.getElementById("valDocente").innerText = data.docente_activo || "NINGUNO";
+      document.getElementById("valVoltaje").innerText = (data.voltaje_v || 0).toFixed(1);
+      document.getElementById("valCorriente").innerText = (data.corriente_a || 0).toFixed(2);
+      document.getElementById("valPotencia").innerText = (data.potencia_w || 0).toFixed(1);
+      document.getElementById("valHorometro").innerText = (data.horometro_horas || 0).toFixed(2);
+
+      const badge = document.getElementById("estacionBadge");
+      if (data.estado === "ENERGIZADA") {
+        badge.className = "status-badge badge-online";
+        badge.innerText = "ESTACIÓN EN SERVICIO";
+        document.getElementById("valEstado").style.color = "#3fb950";
+      } else {
+        badge.className = "status-badge badge-offline";
+        badge.innerText = "ESTACIÓN EN REPOSO";
+        document.getElementById("valEstado").style.color = "#f85149";
+      }
+    });
+
+    // 2. Escucha del historial de sesiones
+    db.ref("historial_sesiones").on("value", (snapshot) => {
+      const tbody = document.getElementById("tablaHistorial");
+      tbody.innerHTML = "";
+      const sesiones = snapshot.val();
+      if (!sesiones) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">No hay sesiones registradas</td></tr>`;
+        return;
+      }
+
+      Object.keys(sesiones).reverse().forEach(key => {
+        const s = sesiones[key];
+        const row = `
+          <tr>
+            <td>${s.fecha || "-"}</td>
+            <td>${s.hora || "-"}</td>
+            <td>${s.docente_id || "-"}</td>
+            <td>${s.docente_nombre || "-"}</td>
+            <td>${s.duracion_seg || 0}</td>
+            <td>${(s.kwh_consumidos || 0).toFixed(3)}</td>
+          </tr>
+        `;
+        tbody.innerHTML += row;
+      });
+    });
+
+    // 3. Crear docente directamente en Firebase
+    function guardarDocente() {
+      const id = document.getElementById("nuevoId").value.trim();
+      const nombre = document.getElementById("nuevoNombre").value.trim().toUpperCase();
+      const pin = document.getElementById("nuevoPin").value.trim();
+      const semilla = document.getElementById("nuevaSemilla").value.trim().toUpperCase();
+
+      if (!id || !nombre || !pin || !semilla) {
+        alert("Todos los campos son obligatorios");
+        return;
+      }
+
+      db.ref("docentes/" + id).set({
+        activo: true,
+        nombre: nombre,
+        pin: pin,
+        semilla: semilla
+      }).then(() => {
+        alert("Docente registrado exitosamente en Firebase");
+        document.getElementById("nuevoId").value = "";
+        document.getElementById("nuevoNombre").value = "";
+        document.getElementById("nuevoPin").value = "";
+        document.getElementById("nuevaSemilla").value = "";
+      }).catch(err => {
+        alert("Error al guardar: " + err.message);
+      });
+    }
+  </script>
+</body>
+</html>
