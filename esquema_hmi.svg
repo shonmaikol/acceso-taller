@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 500" width="1000" height="500">
+  <rect width="1000" height="500" fill="#0f172a" />
+  
+  <!-- Red Eléctrica Taller -->
+  <rect x="30" y="180" width="140" height="140" rx="8" fill="#1e293b" stroke="#64748b" stroke-width="3" />
+  <text x="100" y="235" text-anchor="middle" fill="#f8fafc" font-family="sans-serif" font-size="16" font-weight="bold">RED TALLER</text>
+  <text x="100" y="265" text-anchor="middle" fill="#fbbf24" font-family="sans-serif" font-size="20" font-weight="bold">220 VAC</text>
+  <line x1="170" y1="250" x2="260" y2="250" stroke="#ef4444" stroke-width="6" />
+
+  <!-- Gabinete Cautivo IP65 -->
+  <rect x="260" y="40" width="460" height="420" rx="12" fill="#1e242d" stroke="#94a3b8" stroke-width="3" stroke-dasharray="10,5" />
+  <text x="490" y="75" text-anchor="middle" fill="#cbd5e1" font-family="sans-serif" font-size="18" font-weight="bold">GABINETE INTERMEDIO CAUTIVO IP65</text>
+
+  <!-- Controlador ESP32 + RTC -->
+  <rect x="290" y="105" width="190" height="110" rx="6" fill="#0f172a" stroke="#3b82f6" stroke-width="2" />
+  <text x="385" y="140" text-anchor="middle" fill="#60a5fa" font-family="sans-serif" font-size="15" font-weight="bold">ESP32 + RTC DS3231</text>
+  <text x="385" y="165" text-anchor="middle" fill="#94a3b8" font-family="sans-serif" font-size="12">Control TOTP / Telemetría</text>
+
+  <!-- Bloque Contactor K1 -->
+  <rect x="290" y="265" width="190" height="150" rx="6" fill="#0f172a" stroke="#eab308" stroke-width="2" />
+  <text x="385" y="295" text-anchor="middle" fill="#fde047" font-family="sans-serif" font-size="15" font-weight="bold">CONTACTOR K1</text>
+
+  <!-- Bloque Sensor PZEM-004T -->
+  <rect x="510" y="105" width="180" height="310" rx="6" fill="#0f172a" stroke="#10b981" stroke-width="2" />
+  <text x="600" y="135" text-anchor="middle" fill="#34d399" font-family="sans-serif" font-size="15" font-weight="bold">SENSOR PZEM-004T</text>
+
+  <!-- Líneas de Potencia -->
+  <line x1="480" y1="340" x2="510" y2="340" stroke="#64748b" stroke-width="6" />
+  <line x1="720" y1="250" x2="810" y2="250" stroke="#64748b" stroke-width="6" />
+
+  <!-- Bloque Maqueta Didáctica INACAP -->
+  <rect x="810" y="160" width="160" height="180" rx="10" fill="#1e293b" stroke="#64748b" stroke-width="3" />
+  <text x="890" y="210" text-anchor="middle" fill="#f8fafc" font-family="sans-serif" font-size="15" font-weight="bold">MAQUETA INACAP</text>
+  <text x="890" y="235" text-anchor="middle" fill="#94a3b8" font-family="sans-serif" font-size="12">Planta Didáctica</text>
+</svg>
